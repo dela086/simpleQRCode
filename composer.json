@@ -1,0 +1,40 @@
+{
+    "name": "gradient/simple",
+    "description": "simple QR code for gradient color",
+    "type": "library",
+    "require": {
+        "php": ">=7.1",
+        "ext-gd": "*",
+        "bacon/bacon-qr-code": "^2.0",
+        "khanamiryan/qrcode-detector-decoder": "^1.0.2",
+        "myclabs/php-enum": "^1.5",
+        "symfony/options-resolver": "^2.7|^3.0|^4.0",
+        "symfony/property-access": "^2.7|^3.0|^4.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^5.7|^6.0"
+    },
+    "license": "Apache license",
+    "authors": [
+        {
+            "name": "dela",
+            "email": "xumeng1083@163.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Simple\\QrCode\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Simple\\QrCode\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.x-dev"
+        }
+    }
+}
