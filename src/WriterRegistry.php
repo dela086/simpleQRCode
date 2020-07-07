@@ -1,23 +1,12 @@
 <?php
-
 declare(strict_types=1);
 
-/*
- * (c) Jeroen van den Enden <info@endroid.nl>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+namespace Simple\QrCode;
 
-namespace Endroid\QrCode;
-
-use Endroid\QrCode\Exception\InvalidWriterException;
-use Endroid\QrCode\Writer\BinaryWriter;
-use Endroid\QrCode\Writer\DebugWriter;
-use Endroid\QrCode\Writer\EpsWriter;
-use Endroid\QrCode\Writer\PngWriter;
-use Endroid\QrCode\Writer\SvgWriter;
-use Endroid\QrCode\Writer\WriterInterface;
+use Simple\QrCode\Contracts\WriterRegistryInterface;
+use Simple\QrCode\Exception\InvalidException;
+use Simple\QrCode\Writer\PngWriter;
+use Simple\QrCode\Contracts\WriterInterface;
 
 class WriterRegistry implements WriterRegistryInterface
 {
@@ -34,11 +23,7 @@ class WriterRegistry implements WriterRegistryInterface
         }
 
         $this->addWriters([
-            new BinaryWriter(),
-            new DebugWriter(),
-            new EpsWriter(),
             new PngWriter(),
-            new SvgWriter(),
         ]);
 
         $this->setDefaultWriter('png');
@@ -69,7 +54,7 @@ class WriterRegistry implements WriterRegistryInterface
             return $this->defaultWriter;
         }
 
-        throw new InvalidWriterException('Please set the default writer via the second argument of addWriter');
+        throw new InvalidException('Please set the default writer via the second argument of addWriter');
     }
 
     public function setDefaultWriter(string $name): void
@@ -85,7 +70,7 @@ class WriterRegistry implements WriterRegistryInterface
     private function assertValidWriter(string $name): void
     {
         if (!isset($this->writers[$name])) {
-            throw new InvalidWriterException('Invalid writer "'.$name.'"');
+            throw new InvalidException('Invalid writer "'.$name.'"');
         }
     }
 }

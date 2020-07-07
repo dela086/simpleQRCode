@@ -1,24 +1,18 @@
 <?php
-
 declare(strict_types=1);
-
-/*
- * (c) Jeroen van den Enden <info@endroid.nl>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
 
 namespace Simple\QrCode;
 
 use BaconQrCode\Encoder\Encoder;
-use Simple\QrCode\Exception\InvalidFontException;
+use Simple\QrCode\Contracts\QrCodeInterface;
+use Simple\QrCode\Exception\InvalidException;
 use Simple\QrCode\Exception\UnsupportedExtensionException;
-use Simple\QrCode\Writer\WriterInterface;
+use Simple\QrCode\Contracts\WriterInterface;
+use Simple\QrCode\Contracts\WriterRegistryInterface;
 
 class QrCode implements QrCodeInterface
 {
-   // const LABEL_FONT_PATH_DEFAULT = __DIR__.'/../assets/fonts/noto_sans.otf';
+    const LABEL_FONT_PATH_DEFAULT = __DIR__.'/../static/fonts/noto_sans.otf';
 
     private $text;
 
@@ -35,6 +29,10 @@ class QrCode implements QrCodeInterface
         'b' => 0,
         'a' => 0,
     ];
+
+    private $foregroundColorJb = [];
+
+    private $gradientType = "vertical";
 
     /** @var array */
     private $backgroundColor = [
@@ -82,7 +80,6 @@ class QrCode implements QrCodeInterface
 
     /** @var WriterRegistryInterface */
     private $writerRegistry;
-
     /** @var WriterInterface|null */
     private $writer;
 
@@ -148,6 +145,34 @@ class QrCode implements QrCodeInterface
     public function getForegroundColor(): array
     {
         return $this->foregroundColor;
+    }
+
+    // 设置渐变色，开始颜色和结束颜色
+    public function setForegroundColorJb(String $start, String $end): void
+    {
+        $this->foregroundColorJb = [
+            'start' => $start,
+            'end'   => $end
+        ];
+    }
+
+    // 设置渐变色的类型方向
+    public function setGradientType(String $type) : void
+    {
+        $allowType = ["horizontal", "vertical", "ellipse", "ellipse2", "circle", "circle2", "square", "rectangle", "diamond"];
+        if (in_array($type, $allowType)) {
+            $this->gradientType = $type;
+        }
+    }
+
+    public function getGradientType() : string
+    {
+        return $this->gradientType;
+    }
+
+    public function getForegroundColorJb(): array
+    {
+        return $this->foregroundColorJb;
     }
 
     public function setBackgroundColor(array $backgroundColor): void
@@ -257,7 +282,12 @@ class QrCode implements QrCodeInterface
 
     public function getLabel(): ?string
     {
-        return $this->label;
+        return $this->toEntities($this->label);
+    }
+    private function toEntities($string = '')
+    {
+        if (!$string) return '';
+        return mb_convert_encoding($string, "html-entities", "utf-8");
     }
 
     public function setLabelFontSize(int $labelFontSize): void
@@ -275,7 +305,7 @@ class QrCode implements QrCodeInterface
         $resolvedLabelFontPath = (string) realpath($labelFontPath);
 
         if (!is_file($resolvedLabelFontPath)) {
-            throw new InvalidFontException('Invalid label font path: '.$labelFontPath);
+            throw new InvalidException('Invalid label font path: '.$labelFontPath);
         }
 
         $this->labelFontPath = $resolvedLabelFontPath;

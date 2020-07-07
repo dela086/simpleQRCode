@@ -1,19 +1,10 @@
 <?php
-
 declare(strict_types=1);
+namespace Simple\QrCode\Tests;
 
-/*
- * (c) Jeroen van den Enden <info@endroid.nl>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
-namespace Endroid\QrCode\Tests;
-
-use Endroid\QrCode\Exception\GenerateImageException;
-use Endroid\QrCode\Factory\QrCodeFactory;
-use Endroid\QrCode\QrCode;
+use Simple\QrCode\Exception\GenerateImageException;
+use Simple\QrCode\Factory\QrCodeFactory;
+use Simple\QrCode\QrCode;
 use PHPUnit\Framework\TestCase;
 use Zxing\QrReader;
 

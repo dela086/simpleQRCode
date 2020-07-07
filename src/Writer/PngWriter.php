@@ -1,26 +1,20 @@
 <?php
-
 declare(strict_types=1);
 
-/*
- * (c) Jeroen van den Enden <info@endroid.nl>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+namespace Simple\QrCode\Writer;
 
-namespace Endroid\QrCode\Writer;
-
-use Endroid\QrCode\Exception\GenerateImageException;
-use Endroid\QrCode\Exception\MissingFunctionException;
-use Endroid\QrCode\Exception\MissingLogoHeightException;
-use Endroid\QrCode\Exception\ValidationException;
-use Endroid\QrCode\LabelAlignment;
-use Endroid\QrCode\QrCodeInterface;
+use Simple\QrCode\Exception\GenerateImageException;
+use Simple\QrCode\Exception\MissingException;
+use Simple\QrCode\Exception\ValidationException;
+use Simple\QrCode\LabelAlignment;
+use Simple\QrCode\Contracts\QrCodeInterface;
+use Simple\QrCode\Tools\Helper;
 use Zxing\QrReader;
 
 class PngWriter extends AbstractWriter
 {
+    use Helper;
+    private $step = 0;
     public function writeString(QrCodeInterface $qrCode): string
     {
         $image = $this->createImage($qrCode->getData(), $qrCode);
@@ -74,10 +68,46 @@ class PngWriter extends AbstractWriter
         $backgroundColor = imagecolorallocatealpha($image, $qrCode->getBackgroundColor()['r'], $qrCode->getBackgroundColor()['g'], $qrCode->getBackgroundColor()['b'], $qrCode->getBackgroundColor()['a']);
         imagefill($image, 0, 0, $backgroundColor);
 
+        if ($qrCode->getForegroundColorJb()) {
+            $colors = $this->cutFill($image, $data['inner_height'], $data['inner_width'], $qrCode->getForegroundColorJb()['start'], $qrCode->getForegroundColorJb()['end'], $qrCode->getGradientType(), $data['block_size']);
+        }
+
         foreach ($data['matrix'] as $row => $values) {
             foreach ($values as $column => $value) {
                 if (1 === $value) {
-                    imagefilledrectangle($image, $column * $baseSize, $row * $baseSize, intval(($column + 1) * $baseSize), intval(($row + 1) * $baseSize), $foregroundColor);
+                    if (isset($colors) && !empty($colors)) {
+                        switch($qrCode->getGradientType()) {
+                            case 'vertical':
+                                imagefilledrectangle($image, $column * $baseSize, $row * $baseSize, ($column + 1) * $baseSize, ($row + 1) * $baseSize, $colors[$row]);
+                                break;
+                            case 'horizontal':
+                                imagefilledrectangle( $image, $row * $baseSize, $column * $baseSize, intval(($row + 1) * $baseSize),  intval(($column + 1) * $baseSize), $colors[$row] );
+                                break;
+/*
+ * 余下这几种类型还需重新计算
+                         case 'ellipse':
+                            case 'ellipse2':
+                            case 'circle':
+                            case 'circle2':
+                                imagefilledellipse ($image,$data['inner_width']/2, $data['inner_height']/2, ($data['inner_height']-$i)*$rh, ($line_numbers-$i)*$rw, $colors[$row]);
+                                break;
+                            case 'square':
+                            case 'rectangle':
+                                imagefilledrectangle ($image, $row* $data['inner_width']/$data['inner_height'],$row*$data['inner_height']/ $data['inner_width'], $data['inner_width']-($row* $data['inner_width']/$data['inner_height']), $data['inner_height']-($row*$data['inner_height']/ $data['inner_width']), $colors[$row]);
+                                break;
+                            case 'diamond':
+                                imagefilledpolygon($image, array (
+                                    $width/2, $i*$rw-0.5*$height,
+                                    $i*$rh-0.5*$width, $height/2,
+                                    $width/2,1.5*$height-$i*$rw,
+                                    1.5*$width-$i*$rh, $height/2 ), 4, $colors[$row]);
+                                break;
+*/                          default:
+                        }
+
+                    } else {
+                        imagefilledrectangle($image, $column * $baseSize, $row * $baseSize, intval(($column + 1) * $baseSize), intval(($row + 1) * $baseSize), $foregroundColor);
+                    }
                 }
             }
         }
@@ -107,7 +137,7 @@ class PngWriter extends AbstractWriter
         $logoImage = imagecreatefromstring(strval(file_get_contents($logoPath)));
 
         if ('image/svg+xml' === $mimeType && (null === $logoHeight || null === $logoWidth)) {
-            throw new MissingLogoHeightException('SVG Logos require an explicit height set via setLogoSize($width, $height)');
+            throw new MissingException('SVG Logos require an explicit height set via setLogoSize($width, $height)');
         }
 
         if (!is_resource($logoImage)) {
@@ -139,7 +169,7 @@ class PngWriter extends AbstractWriter
     private function addLabel($sourceImage, string $label, string $labelFontPath, int $labelFontSize, string $labelAlignment, array $labelMargin, array $foregroundColor, array $backgroundColor)
     {
         if (!function_exists('imagettfbbox')) {
-            throw new MissingFunctionException('Missing function "imagettfbbox", please make sure you installed the FreeType library');
+            throw new MissingException('Missing function "imagettfbbox", please make sure you installed the FreeType library');
         }
 
         $labelBox = imagettfbbox($labelFontSize, 0, $labelFontPath, $label);
@@ -207,4 +237,107 @@ class PngWriter extends AbstractWriter
     {
         return 'png';
     }
+
+    // The main function that draws the gradient
+    private function cutFill($im, $line_numbers, $line_width, $start, $end, $direction, $step = 0) {
+        if ($step) $this->step = $step;
+        list($r1,$g1,$b1) = self::hex2rgb($start);
+        list($r2,$g2,$b2) = self::hex2rgb($end);
+
+/*
+        switch($direction) {
+            case 'horizontal':
+                $line_numbers = imagesx($im);
+                $line_width = imagesy($im);
+                break;
+            case 'vertical':
+                $line_numbers = imagesy($im);
+                $line_width = imagesx($im);
+                break;
+            case 'ellipse':
+                $width = imagesx($im);
+                $height = imagesy($im);
+                $rh=$height>$width?1:$width/$height;
+                $rw=$width>$height?1:$height/$width;
+                $line_numbers = min($width,$height);
+                $center_x = $width/2;
+                $center_y = $height/2;
+                list($r1,$g1,$b1) = $this->hex2rgb($end);
+                list($r2,$g2,$b2) = $this->hex2rgb($start);
+                imagefill($im, 0, 0, imagecolorallocate( $im, $r1, $g1, $b1 ));
+                break;
+            case 'ellipse2':
+                $width = imagesx($im);
+                $height = imagesy($im);
+                $rh=$height>$width?1:$width/$height;
+                $rw=$width>$height?1:$height/$width;
+                $line_numbers = sqrt(pow($width,2)+pow($height,2));
+                $center_x = $width/2;
+                $center_y = $height/2;
+                list($r1,$g1,$b1) = $this->hex2rgb($end);
+                list($r2,$g2,$b2) = $this->hex2rgb($start);
+                break;
+            case 'circle':
+                $width = imagesx($im);
+                $height = imagesy($im);
+                $line_numbers = sqrt(pow($width,2)+pow($height,2));
+                $center_x = $width/2;
+                $center_y = $height/2;
+                $rh = $rw = 1;
+                list($r1,$g1,$b1) = $this->hex2rgb($end);
+                list($r2,$g2,$b2) = $this->hex2rgb($start);
+                break;
+            case 'circle2':
+                $width = imagesx($im);
+                $height = imagesy($im);
+                $line_numbers = min($width,$height);
+                $center_x = $width/2;
+                $center_y = $height/2;
+                $rh = $rw = 1;
+                list($r1,$g1,$b1) = $this->hex2rgb($end);
+                list($r2,$g2,$b2) = $this->hex2rgb($start);
+                imagefill($im, 0, 0, imagecolorallocate( $im, $r1, $g1, $b1 ));
+                break;
+            case 'square':
+            case 'rectangle':
+                $width = imagesx($im);
+                $height = imagesy($im);
+                $line_numbers = max($width,$height)/2;
+                list($r1,$g1,$b1) = $this->hex2rgb($end);
+                list($r2,$g2,$b2) = $this->hex2rgb($start);
+                break;
+            case 'diamond':
+                list($r1,$g1,$b1) = $this->hex2rgb($end);
+                list($r2,$g2,$b2) = $this->hex2rgb($start);
+                $width = imagesx($im);
+                $height = imagesy($im);
+                $rh=$height>$width?1:$width/$height;
+                $rw=$width>$height?1:$height/$width;
+                $line_numbers = min($width,$height);
+                break;
+            default:
+        }
+*/
+
+        $r = $g = $b = 255;
+        $colors = [];
+        $fill = '';
+        for ( $i = 0; $i < $line_numbers; $i=$i+$this->step ) {
+            // old values :
+            $old_r=$r;
+            $old_g=$g;
+            $old_b=$b;
+            // new values :
+            $r = ( $r2 - $r1 != 0 ) ? intval( $r1 + ( $r2 - $r1 ) * ( $i / $line_numbers ) ): $r1;
+            $g = ( $g2 - $g1 != 0 ) ? intval( $g1 + ( $g2 - $g1 ) * ( $i / $line_numbers ) ): $g1;
+            $b = ( $b2 - $b1 != 0 ) ? intval( $b1 + ( $b2 - $b1 ) * ( $i / $line_numbers ) ): $b1;
+
+
+            if ( "$old_r,$old_g,$old_b" != "$r,$g,$b")
+                $fill = imagecolorallocate( $im, $r, $g, $b );
+            $colors[] = $fill;
+        }
+        return $colors;
+    }
+
 }

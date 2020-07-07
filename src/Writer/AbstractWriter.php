@@ -1,21 +1,15 @@
 <?php
-
 declare(strict_types=1);
 
-/*
- * (c) Jeroen van den Enden <info@endroid.nl>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
+namespace Simple\QrCode\Writer;
 
-namespace Endroid\QrCode\Writer;
+use Simple\QrCode\Contracts\QrCodeInterface;
+use Simple\QrCode\Contracts\WriterInterface;
+use Simple\QrCode\Exception\GenerateImageException;
+use Simple\QrCode\Exception\InvalidException;
+use Simple\QrCode\Exception\MissingException;
 
-use Endroid\QrCode\Exception\GenerateImageException;
-use Endroid\QrCode\Exception\InvalidLogoException;
-use Endroid\QrCode\Exception\MissingExtensionException;
-use Endroid\QrCode\QrCodeInterface;
-
+// WriterInterface
 abstract class AbstractWriter implements WriterInterface
 {
     protected function getMimeType(string $path): string
@@ -32,7 +26,7 @@ abstract class AbstractWriter implements WriterInterface
         $headers = get_headers($url, 1);
 
         if (!is_array($headers) || !isset($headers['Content-Type'])) {
-            throw new InvalidLogoException(sprintf('Content type could not be determined for logo URL "%s"', $url));
+            throw new InvalidException(sprintf('Content type could not be determined for logo URL "%s"', $url));
         }
 
         return $headers['Content-Type'];
@@ -41,13 +35,13 @@ abstract class AbstractWriter implements WriterInterface
     private function getMimeTypeFromPath(string $path): string
     {
         if (!function_exists('mime_content_type')) {
-            throw new MissingExtensionException('You need the ext-fileinfo extension to determine logo mime type');
+            throw new MissingException('You need the ext-fileinfo extension to determine logo mime type');
         }
 
         $mimeType = mime_content_type($path);
 
         if (!is_string($mimeType)) {
-            throw new InvalidLogoException('Could not determine mime type');
+            throw new InvalidException('Could not determine mime type');
         }
 
         if (!preg_match('#^image/#', $mimeType)) {
